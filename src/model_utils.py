@@ -25,9 +25,12 @@ def load_model_and_tokenizer(config: object, device: torch.device):
         config.MODEL_NAME,
         quantization_config=bnb_config,
         torch_dtype=torch_dtype,
-        device_map={"": device.index} if device.type == "cuda" else "auto",
+        device_map=None,  # Load on CPU first, then move to device
         trust_remote_code=True,
     )
+    
+    # Move model to the specified device
+    model = model.to(device)
     
     model.config.use_cache = False
     model.config.pretraining_tp = 1

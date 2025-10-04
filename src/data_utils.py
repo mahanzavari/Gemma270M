@@ -6,19 +6,20 @@ def create_prompt(sample: dict) -> str:
     Creates a formatted string for a given sample, suitable for SFTTrainer.
     The format includes the question, context, and the answer.
     """
-    question = sample.get("question", "").strip()
-    context = sample.get("context", "").strip()
+    # For the new dataset format
+    question = sample.get("instruction", "").strip() if isinstance(sample.get("instruction"), str) else ""
+    context = sample.get("input", "").strip() if isinstance(sample.get("input"), str) else ""
+    answer = sample.get("output", "").strip() if isinstance(sample.get("output"), str) else ""
     
-    # Use the first answer if available, otherwise handle missing answers
-    answers = sample.get("answers", {}).get("text", [])
-    if not answers:
-        logging.warning(f"Sample has no answers. Skipping. Question: {question[:50]}...")
-        return None # This will be filtered out later
-    
-    answer = answers[0].strip()
+    if not question or not answer:
+        logging.warning(f"Sample has missing question or answer. Skipping. Question: {question[:50]}...")
+        return None
     
     # This full string will be used by SFTTrainer for training
-    return f"پرسش: {question}\nمتن: {context}\nجواب کوتاه: {answer}"
+    if context:
+        return f"پرسش: {question}\nمتن: {context}\nجواب کوتاه: {answer}"
+    else:
+        return f"پرسش: {question}\nجواب کوتاه: {answer}"
 
 def load_and_prepare_dataset(config: object) -> DatasetDict:
     """
@@ -28,11 +29,11 @@ def load_and_prepare_dataset(config: object) -> DatasetDict:
     logging.info(f"Loading dataset '{config.DATASET_NAME}' from Hugging Face Hub...")
     dataset = load_dataset(config.DATASET_NAME, split='train')
 
-    # Filter out samples with no answers
+    # Filter out samples with no answers or questions
     original_size = len(dataset)
-    dataset = dataset.filter(lambda x: x.get("answers") and x["answers"].get("text"))
+    dataset = dataset.filter(lambda x: isinstance(x.get("instruction"), str) and x.get("instruction") and isinstance(x.get("output"), str) and x.get("output"))
     if len(dataset) < original_size:
-        logging.info(f"Filtered out {original_size - len(dataset)} samples with no answers.")
+        logging.info(f"Filtered out {original_size - len(dataset)} samples with missing or invalid instruction or output.")
     
     # Create the formatted text column required by SFTTrainer
     dataset = dataset.map(lambda sample: {"text": create_prompt(sample)}, remove_columns=list(dataset.features))
