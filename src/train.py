@@ -3,10 +3,10 @@ from transformers import TrainingArguments
 from trl import SFTTrainer
 import logging
 
-from src.config import load_config
-from src.utils import set_seed, get_device
-from src.data_utils import load_and_prepare_dataset
-from src.model_utils import load_model_and_tokenizer, apply_lora
+from config import load_config
+from utils import set_seed, get_device
+from data_utils import load_and_prepare_dataset
+from model_utils import load_model_and_tokenizer, apply_lora
 
 def main():
     """Main function to orchestrate the fine-tuning process."""
