@@ -1,12 +1,12 @@
 import torch
 from transformers import TrainingArguments
-from trl import SFTTrainer
+from trl import SFTTrainer, SFTConfig
 import logging
 
-from config import load_config
-from utils import set_seed, get_device
-from data_utils import load_and_prepare_dataset
-from model_utils import load_model_and_tokenizer, apply_lora
+from .config import load_config
+from .utils import set_seed, get_device
+from .data_utils import load_and_prepare_dataset
+from .model_utils import load_model_and_tokenizer, apply_lora
 
 def main():
     """Main function to orchestrate the fine-tuning process."""
@@ -19,6 +19,8 @@ def main():
     # Setup
     set_seed(config.SEED)
     device = get_device()
+    if device is None:
+        raise ValueError("No valid device detected. Ensure CUDA is available or set to CPU.")
     
     # Load model and tokenizer
     base_model, tokenizer = load_model_and_tokenizer(config, device)
@@ -30,7 +32,7 @@ def main():
     dataset = load_and_prepare_dataset(config)
 
     # Training Arguments
-    training_args = TrainingArguments(
+    training_args = SFTConfig(
         output_dir=config.OUTPUT_DIR,
         num_train_epochs=config.NUM_TRAIN_EPOCHS,
         per_device_train_batch_size=config.PER_DEVICE_TRAIN_BATCH_SIZE,
@@ -47,21 +49,21 @@ def main():
         group_by_length=True,
         lr_scheduler_type=config.LR_SCHEDULER_TYPE,
         report_to="tensorboard",
-        evaluation_strategy="steps",
+        eval_strategy="steps",
         eval_steps=config.EVAL_STEPS,
+        max_length=config.MAX_INPUT_LENGTH,
+        packing=False,  # Packing can be beneficial but requires careful data prep
+        dataset_text_field="text",
     )
 
     # Initialize Trainer
     trainer = SFTTrainer(
         model=lora_model,
+        args=training_args,
         train_dataset=dataset["train"],
         eval_dataset=dataset["validation"],
         peft_config=lora_model.peft_config['default'],
-        dataset_text_field="text",
-        max_seq_length=config.MAX_INPUT_LENGTH,
-        tokenizer=tokenizer,
-        args=training_args,
-        packing=False, # Packing can be beneficial but requires careful data prep
+        processing_class=tokenizer,
     )
     
     logging.info("Starting training...")
