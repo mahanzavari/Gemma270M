@@ -27,6 +27,7 @@ def load_model_and_tokenizer(config: object, device: torch.device):
         torch_dtype=torch_dtype,
         device_map=None,  # Load on CPU first, then move to device
         trust_remote_code=True,
+        attn_implementation='eager',
     )
     
     # Move model to the specified device
